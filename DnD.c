@@ -2,151 +2,305 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Definieer de structuur voor een item
-struct Item {
-  char *index;
-  char *name;
-  char *url;
+enum Component {
+    V,
+    S,
+    M
 };
 
-// Functie om een JSON-string te parsen
-struct Item *parseJSON(const char *jsonString, int *count) {
-  struct Item *items = NULL;
+enum Type {
+    sphere,
+    cone,
+    cylinder,
+    line,
+    cube
+};
 
-  // Tellen van het aantal items
-  *count = 0;
-  const char *ptr = jsonString;
-  while ((ptr = strstr(ptr, "\"index\"")) != NULL) {
-    (*count)++;
-    ptr++;
-  }
+struct AreaOfEffect {
+    int size;
+    enum Type type;
+};
 
-  // Alloceren van geheugen voor items
-  items = malloc(*count * sizeof(struct Item));
-  if (items == NULL) {
-    perror("Kan geheugen niet toewijzen");
-    exit(EXIT_FAILURE);
-  }
+struct DamageAtCharacterLevel {
+    void* damage_at_character_level;
+};
 
-  // Parseren van JSON en invullen van de items
-  ptr = jsonString;
-  for (int i = 0; i < *count; i++) {
-    // Zoek "index"
-    ptr = strstr(ptr, "\"index\":");
-    if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
-      exit(EXIT_FAILURE);
+struct DamageAtSlotLevel {
+    void* damage_at_slot_level;
+};
+
+struct DamageType {
+    char* index;
+    char* name;
+    char* url;
+};
+
+union Damage {
+    struct DamageAtCharacterLevel at_character_level;
+    struct DamageAtSlotLevel at_slot_level;
+    struct DamageType type;
+};
+
+struct Resource {
+    char* index;
+    char* name;
+    char* url;
+};
+
+struct Spell {
+    char* index;
+    char* name;
+    char* url;
+    char** desc;
+    char** higher_level;
+    char* range;
+    enum Component components;
+    char* material;
+    struct AreaOfEffect area_of_effect;
+    int ritual;
+    char* duration;
+    int concentration;
+    char* casting_time;
+    int level;
+    char* attack_type;
+    union Damage damage;
+    struct Resource school;
+    struct Resource classes;
+    struct Resource subclasses;
+};
+
+// Helper function to allocate memory and copy a string
+char* copyString(const char* source) {
+    if (source == NULL) return NULL;
+
+    size_t length = strlen(source);
+    char* destination = malloc(length + 1);
+    if (destination == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        exit(1);
     }
-    ptr += strlen("\"index\":");
-    ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
-    const char *indexStart = ptr;
-    ptr = strchr(ptr, '\"');
-    if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
-      exit(EXIT_FAILURE);
-    }
-    const char *indexEnd = ptr;
-    ptr++; // Ga voorbij het aanhalingsteken
-
-    // Kopieer de index naar de struct
-    size_t indexLen = indexEnd - indexStart;
-    items[i].index = malloc((indexLen + 1) * sizeof(char));
-    strncpy(items[i].index, indexStart, indexLen);
-    items[i].index[indexLen] = '\0';
-
-    // Zoek "name"
-    ptr = strstr(ptr, "\"name\":");
-    if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
-      exit(EXIT_FAILURE);
-    }
-    ptr += strlen("\"name\":");
-    ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
-    const char *nameStart = ptr;
-    ptr = strchr(ptr, '\"');
-    if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
-      exit(EXIT_FAILURE);
-    }
-    const char *nameEnd = ptr;
-    ptr++; // Ga voorbij het aanhalingsteken
-
-    // Kopieer de naam naar de struct
-    size_t nameLen = nameEnd - nameStart;
-    items[i].name = malloc((nameLen + 1) * sizeof(char));
-    strncpy(items[i].name, nameStart, nameLen);
-    items[i].name[nameLen] = '\0';
-
-    // Zoek "url"
-    ptr = strstr(ptr, "\"url\":");
-    if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
-      exit(EXIT_FAILURE);
-    }
-    ptr += strlen("\"url\":");
-    ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
-    const char *urlStart = ptr;
-    ptr = strchr(ptr, '\"');
-    if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
-      exit(EXIT_FAILURE);
-    }
-    const char *urlEnd = ptr;
-    ptr++; // Ga voorbij het aanhalingsteken
-
-    // Kopieer de URL naar de struct
-    size_t urlLen = urlEnd - urlStart;
-    items[i].url = malloc((urlLen + 1) * sizeof(char));
-    strncpy(items[i].url, urlStart, urlLen);
-    items[i].url[urlLen] = '\0';
-  }
-
-  return items;
-}
-
-// Functie om de inhoud van een bestand te lezen
-char *readFile(const char *filename) {
-  FILE *file = fopen(filename, "r");
-  if (file == NULL) {
-    perror("Kan het bestand niet openen");
-    exit(EXIT_FAILURE);
-  }
-
-  fseek(file, 0, SEEK_END);
-  long length = ftell(file);
-  fseek(file, 0, SEEK_SET);
-
-  char *buffer = malloc(length + 1);
-  if (buffer == NULL) {
-    perror("Kan geheugen niet toewijzen");
-    exit(EXIT_FAILURE);
-  }
-
-  fread(buffer, 1, length, file);
-  fclose(file);
-  buffer[length] = '\0';
-
-  return buffer;
+    strcpy(destination, source);
+    return destination;
 }
 
 int main() {
-  // Lees de inhoud van het bestand "tekst.JSON"
-  char *jsonString = readFile("tekst.JSON");
+  
+    FILE *file = fopen("spells.json", "r");
 
-  int count;
-  struct Item *items = parseJSON(jsonString, &count);
+    if (file == NULL) {
+        perror("Error: Failed to open file");
+        return 0;
+    }
+    char buffer[1024];
+    size_t len = sizeof(buffer);
+    printf("FILE\n");
+    while (fgets(buffer, len, file)) {
+        printf("%s", buffer);
+    }
+    printf("-------------------------------------------\n");
 
-  // Druk de geparste items af
-  printf("Aantal items: %d\n", count);
-  for (int i = 0; i < count; i++) {
-    printf("Index: %s, Name: %s, URL: %s\n", items[i].index, items[i].name,
-           items[i].url);
-    free(items[i].index);
-    free(items[i].name);
-    free(items[i].url);
-  }
-  free(items);
-  free(jsonString);
+    struct Spell spell; // Step 3: Create an instance of struct Spell
 
-  return 0;
+    int descCount = 0;
+    int levelCount = 0;
+    int damageCount = 0;
+
+    // Step 2: Use strtok to extract values from jsonString
+    char* token = strtok("spells.json", "{\":,}\n\t");
+    while (token != NULL) {
+        if (strcmp(token, "index") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.index = copyString(token);
+        } else if (strcmp(token, "name") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.name = copyString(token);
+        } else if (strcmp(token, "url") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.url = copyString(token);
+        } else if (strcmp(token, "desc") == 0) {
+            token = strtok(NULL, "{\":,}\n\t[\"");
+            while (token != NULL && strcmp(token, "]") != 0) {
+                spell.desc = realloc(spell.desc, (descCount + 1) * sizeof(char*));
+                spell.desc[descCount] = copyString(token);
+                descCount++;
+                token = strtok(NULL, "{\":,}\n\t[\"");
+            }
+        } else if (strcmp(token, "higher_level") == 0) {
+            token = strtok(NULL, "{\":,}\n\t[\"");
+            while (token != NULL && strcmp(token, "]") != 0) {
+                spell.higher_level = realloc(spell.higher_level, (levelCount + 1) * sizeof(char*));
+                spell.higher_level[levelCount] = copyString(token);
+                levelCount++;
+                token = strtok(NULL, "{\":,}\n\t[\"");
+            }
+        } else if (strcmp(token, "range") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.range = copyString(token);
+        } else if (strcmp(token, "components") == 0) {
+            token = strtok(NULL, "{\":,}\n\t[\"");
+            if (strcmp(token, "V") == 0) {
+                spell.components = V;
+            } else if (strcmp(token, "S") == 0) {
+                spell.components = S;
+            } else if (strcmp(token, "M") == 0) {
+                spell.components = M;
+            }
+        } else if (strcmp(token, "ritual") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.ritual = (strcmp(token, "true") == 0) ? 1 : 0;
+        } else if (strcmp(token, "duration") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.duration = copyString(token);
+        } else if (strcmp(token, "concentration") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.concentration = (strcmp(token, "true") == 0) ? 1 : 0;
+        } else if (strcmp(token, "casting_time") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.casting_time = copyString(token);
+        } else if (strcmp(token, "level") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.level = atoi(token);
+        } else if (strcmp(token, "attack_type") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            spell.attack_type = copyString(token);
+        } else if (strcmp(token, "damage") == 0) {
+            token = strtok(NULL, "{\":,}\n\t");
+            while (token != NULL && strcmp(token, "}") != 0) {
+                if (strcmp(token, "damage_at_character_level") == 0) {
+                    token = strtok(NULL, "{\":,}\n\t\"");
+                    while (token != NULL && strcmp(token, "}") != 0) {
+                        spell.damage.at_character_level.damage_at_character_level = realloc(
+                                spell.damage.at_character_level.damage_at_character_level,
+                                (damageCount + 1) * sizeof(char*)
+                        );
+                        spell.damage.at_character_level.damage_at_character_level[damageCount] = copyString(token);
+                        damageCount++;
+                        token = strtok(NULL, "{\":,}\n\t\"");
+                    }
+                } else if (strcmp(token, "damage_type") == 0) {
+                    token = strtok(NULL, "{\":,}\n\t\"");
+                    spell.damage.type.index = copyString(token);
+                    token = strtok(NULL, "{\":,}\n\t\"");
+                    token = strtok(NULL, "{\":,}\n\t\"");
+                    spell.damage.type.name = copyString(token);
+                    token = strtok(NULL, "{\":,}\n\t\"");
+                    token = strtok(NULL, "{\":,}\n\t\"");
+                    spell.damage.type.url = copyString(token);
+                }
+                token = strtok(NULL, "{\":,}\n\t");
+            }
+        } else if (strcmp(token, "school") == 0) {
+            token = strtok(NULL, "{\":,}\n\t\"");
+            spell.school.index = copyString(token);
+            token = strtok(NULL, "{\":,}\n\t\"");
+            token = strtok(NULL, "{\":,}\n\t\"");
+            spell.school.name = copyString(token);
+            token = strtok(NULL, "{\":,}\n\t\"");
+            token = strtok(NULL, "{\":,}\n\t\"");
+            spell.school.url = copyString(token);
+        } else if (strcmp(token, "classes") == 0) {
+            token = strtok(NULL, "{\":,}\n\t[\"");
+            int classCount = 0;
+            while (token != NULL && strcmp(token, "]") != 0) {
+                spell.classes.index = copyString(token);
+                token = strtok(NULL, "{\":,}\n\t\"");
+                token = strtok(NULL, "{\":,}\n\t\"");
+                spell.classes.name = copyString(token);
+                token = strtok(NULL, "{\":,}\n\t\"");
+                token = strtok(NULL, "{\":,}\n\t\"");
+                spell.classes.url = copyString(token);
+                token = strtok(NULL, "{\":,}\n\t[\"");
+            }
+        } else if (strcmp(token, "subclasses") == 0) {
+            token = strtok(NULL, "{\":,}\n\t[\"");
+            int subclassCount = 0;
+            while (token != NULL && strcmp(token, "]") != 0) {
+                spell.subclasses.index = copyString(token);
+                token = strtok(NULL, "{\":,}\n\t\"");
+                token = strtok(NULL, "{\":,}\n\t\"");
+                spell.subclasses.name = copyString(token);
+                token = strtok(NULL, "{\":,}\n\t\"");
+                token = strtok(NULL, "{\":,}\n\t\"");
+                spell.subclasses.url = copyString(token);
+                token = strtok(NULL, "{\":,}\n\t[\"");
+            }
+        }
+
+        token = strtok(NULL, "{\":,}\n\t");
+    }
+
+    // Step 4: Print the values stored in the struct
+    printf("Spell Name: %s\n", spell.name);
+    printf("Spell Index: %s\n", spell.index);
+    printf("Spell URL: %s\n", spell.url);
+    printf("Spell Description:\n");
+    for (int i = 0; i < descCount; i++) {
+        printf("- %s\n", spell.desc[i]);
+    }
+    printf("Higher Level:\n");
+    for (int i = 0; i < levelCount; i++) {
+        printf("- %s\n", spell.higher_level[i]);
+    }
+    printf("Range: %s\n", spell.range);
+    printf("Components: %d\n", spell.components);
+    printf("Ritual: %s\n", spell.ritual ? "true" : "false");
+    printf("Duration: %s\n", spell.duration);
+    printf("Concentration: %s\n", spell.concentration ? "true" : "false");
+    printf("Casting Time: %s\n", spell.casting_time);
+    printf("Level: %d\n", spell.level);
+    printf("Attack Type: %s\n", spell.attack_type);
+    printf("Damage Type Index: %s\n", spell.damage.type.index);
+    printf("Damage Type Name: %s\n", spell.damage.type.name);
+    printf("Damage Type URL: %s\n", spell.damage.type.url);
+    printf("Damage at Character Level:\n");
+    for (int i = 0; i < damageCount; i++) {
+        printf("- %s\n", spell.damage.at_character_level.damage_at_character_level[i]);
+    }
+    printf("School Index: %s\n", spell.school.index);
+    printf("School Name: %s\n", spell.school.name);
+    printf("School URL: %s\n", spell.school.url);
+    printf("Classes Index: %s\n", spell.classes.index);
+    printf("Classes Name: %s\n", spell.classes.name);
+    printf("Classes URL: %s\n", spell.classes.url);
+    printf("Subclasses Index: %s\n", spell.subclasses.index);
+    printf("Subclasses Name: %s\n", spell.subclasses.name);
+    printf("Subclasses URL: %s\n", spell.subclasses.url);
+
+    // Step 5: Free allocated memory
+    for (int i = 0; i < descCount; i++) {
+        free(spell.desc[i]);
+    }
+    free(spell.desc);
+
+    for (int i = 0; i < levelCount; i++) {
+        free(spell.higher_level[i]);
+    }
+    free(spell.higher_level);
+
+    for (int i = 0; i < damageCount; i++) {
+        free((char*)spell.damage.at_character_level.damage_at_character_level[i]);
+    }
+    free(spell.damage.at_character_level.damage_at_character_level);
+
+    free(spell.index);
+    free(spell.name);
+    free(spell.url);
+    free(spell.range);
+    free(spell.attack_type);
+    free(spell.damage.type.index);
+    free(spell.damage.type.name);
+    free(spell.damage.type.url);
+    free(spell.school.index);
+    free(spell.school.name);
+    free(spell.school.url);
+    free(spell.classes.index);
+    free(spell.classes.name);
+    free(spell.classes.url);
+    free(spell.subclasses.index);
+    free(spell.subclasses.name);
+    free(spell.subclasses.url);
+
+
+    fclose(file);
+    return 0;
 }
