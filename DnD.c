@@ -1,111 +1,152 @@
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Define the struct to hold the parsed data
-typedef struct {
-  char index[100];
-  char name[100];
-  char url[100];
-} SpellInfo;
+// Definieer de structuur voor een item
+struct Item {
+  char *index;
+  char *name;
+  char *url;
+};
 
-// Define the linked list node
-typedef struct Node {
-  SpellInfo spell;
-  struct Node *next;
-} Node;
+// Functie om een JSON-string te parsen
+struct Item *parseJSON(const char *jsonString, int *count) {
+  struct Item *items = NULL;
 
-// Function to add a new node to the linked list
-void addNode(Node **head, SpellInfo spell) {
-  Node *newNode = (Node *)malloc(sizeof(Node));
-  newNode->spell = spell;
-  newNode->next = NULL;
-
-  if (*head == NULL) {
-    *head = newNode;
-  } else {
-    Node *current = *head;
-    while (current->next != NULL) {
-      current = current->next;
-    }
-    current->next = newNode;
+  // Tellen van het aantal items
+  *count = 0;
+  const char *ptr = jsonString;
+  while ((ptr = strstr(ptr, "\"index\"")) != NULL) {
+    (*count)++;
+    ptr++;
   }
+
+  // Alloceren van geheugen voor items
+  items = malloc(*count * sizeof(struct Item));
+  if (items == NULL) {
+    perror("Kan geheugen niet toewijzen");
+    exit(EXIT_FAILURE);
+  }
+
+  // Parseren van JSON en invullen van de items
+  ptr = jsonString;
+  for (int i = 0; i < *count; i++) {
+    // Zoek "index"
+    ptr = strstr(ptr, "\"index\":");
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+    ptr += strlen("\"index\":");
+    ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
+    const char *indexStart = ptr;
+    ptr = strchr(ptr, '\"');
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+    const char *indexEnd = ptr;
+    ptr++; // Ga voorbij het aanhalingsteken
+
+    // Kopieer de index naar de struct
+    size_t indexLen = indexEnd - indexStart;
+    items[i].index = malloc((indexLen + 1) * sizeof(char));
+    strncpy(items[i].index, indexStart, indexLen);
+    items[i].index[indexLen] = '\0';
+
+    // Zoek "name"
+    ptr = strstr(ptr, "\"name\":");
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+    ptr += strlen("\"name\":");
+    ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
+    const char *nameStart = ptr;
+    ptr = strchr(ptr, '\"');
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+    const char *nameEnd = ptr;
+    ptr++; // Ga voorbij het aanhalingsteken
+
+    // Kopieer de naam naar de struct
+    size_t nameLen = nameEnd - nameStart;
+    items[i].name = malloc((nameLen + 1) * sizeof(char));
+    strncpy(items[i].name, nameStart, nameLen);
+    items[i].name[nameLen] = '\0';
+
+    // Zoek "url"
+    ptr = strstr(ptr, "\"url\":");
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+    ptr += strlen("\"url\":");
+    ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
+    const char *urlStart = ptr;
+    ptr = strchr(ptr, '\"');
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      exit(EXIT_FAILURE);
+    }
+    const char *urlEnd = ptr;
+    ptr++; // Ga voorbij het aanhalingsteken
+
+    // Kopieer de URL naar de struct
+    size_t urlLen = urlEnd - urlStart;
+    items[i].url = malloc((urlLen + 1) * sizeof(char));
+    strncpy(items[i].url, urlStart, urlLen);
+    items[i].url[urlLen] = '\0';
+  }
+
+  return items;
 }
 
-// Function to parse JSON and extract the required values
-void parseJSON(char *jsonString, Node **head) {
-  SpellInfo spell;
-
-  char *jsonCopy = strdup(jsonString); // Make a copy of the JSON string
-  char *token = strtok(jsonCopy, ",{}\":");
-  while (token != NULL) {
-    if (strcmp(token, "index") == 0) {
-      token = strtok(NULL, ",{}\": ");
-      strcpy(spell.index, token);
-    } else if (strcmp(token, "name") == 0) {
-      token = strtok(NULL, ",{}\": ");
-      strcpy(spell.name, token);
-    } else if (strcmp(token, "url") == 0) {
-      token = strtok(NULL, ",{}\": ");
-      strcpy(spell.url, token);
-      // Add the parsed data to the linked list
-      addNode(head, spell);
-    }
-    token = strtok(NULL, ",{}\":");
+// Functie om de inhoud van een bestand te lezen
+char *readFile(const char *filename) {
+  FILE *file = fopen(filename, "r");
+  if (file == NULL) {
+    perror("Kan het bestand niet openen");
+    exit(EXIT_FAILURE);
   }
-  free(jsonCopy); // Free the copied string
-}
 
-// Function to print the linked list
-void printList(Node *head) {
-  Node *current = head;
-  while (current != NULL) {
-    printf("Index: %s\n", current->spell.index);
-    printf("Name: %s\n", current->spell.name);
-    printf("URL: %s\n\n", current->spell.url);
-    current = current->next;
+  fseek(file, 0, SEEK_END);
+  long length = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  char *buffer = malloc(length + 1);
+  if (buffer == NULL) {
+    perror("Kan geheugen niet toewijzen");
+    exit(EXIT_FAILURE);
   }
+
+  fread(buffer, 1, length, file);
+  fclose(file);
+  buffer[length] = '\0';
+
+  return buffer;
 }
 
 int main() {
-  // Create a linked list to store the parsed data
-  Node *head = NULL;
+  // Lees de inhoud van het bestand "tekst.JSON"
+  char *jsonString = readFile("tekst.JSON");
 
-    // JSON file names
-  char jsonFiles[3][100] = {"sacred-flame.json", "acid-splash.json",
-                            "file3.json"};
+  int count;
+  struct Item *items = parseJSON(jsonString, &count);
 
-  // Parse each JSON file and populate the linked list
-  for (int i = 0; i < 3; i++) {
-    FILE *file = fopen(jsonFiles[i], "r");
-    if (file == NULL) {
-            printf("Error opening file: %s\n", jsonFiles[i]);
-      continue;
-    }
-    // Determine the file size
-    fseek(file, 0, SEEK_END);
-    long fileSize = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    // Allocate memory for the JSON string
-    char *jsonString = (char *)malloc(fileSize + 1);
-
-    // Read the file content into the JSON string
-    fread(jsonString, 1, fileSize, file);
-    jsonString[fileSize] = '\0'; // Null-terminate the string
-
-    // Close the file
-    fclose(file);
-
-    // Parse the JSON and populate the linked list
-    parseJSON(jsonString, &head);
-
-    // Free the allocated memory
-    free(jsonString);
+  // Druk de geparste items af
+  printf("Aantal items: %d\n", count);
+  for (int i = 0; i < count; i++) {
+    printf("Index: %s, Name: %s, URL: %s\n", items[i].index, items[i].name,
+           items[i].url);
+    free(items[i].index);
+    free(items[i].name);
+    free(items[i].url);
   }
+  free(items);
+  free(jsonString);
 
-  // Print the linked list
-  printList(head);
   return 0;
 }
