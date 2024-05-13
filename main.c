@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,8 +12,6 @@ struct Item {
 
 // Functie om een JSON-string te parsen
 struct Item *parseJSON(const char *jsonString, int *count) {
-  struct Item *items = NULL;
-
   // Tellen van het aantal items
   *count = 0;
   const char *ptr = jsonString;
@@ -22,7 +21,7 @@ struct Item *parseJSON(const char *jsonString, int *count) {
   }
 
   // Alloceren van geheugen voor items
-  items = malloc(*count * sizeof(struct Item));
+  struct Item *items = malloc(*count * sizeof(struct Item));
   if (items == NULL) {
     perror("Kan geheugen niet toewijzen");
     exit(EXIT_FAILURE);
@@ -34,15 +33,19 @@ struct Item *parseJSON(const char *jsonString, int *count) {
     // Zoek "index"
     ptr = strstr(ptr, "\"index\":");
     if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      fprintf(stderr, "Fout bij het lezen van item Index1\n");
       exit(EXIT_FAILURE);
     }
     ptr += strlen("\"index\":");
     ptr = strchr(ptr, '\"') + 1; // Ga naar het volgende aanhalingsteken
+    if (ptr == NULL) {
+      fprintf(stderr, "Fout bij het lezen van item Index2\n");
+      exit(EXIT_FAILURE);
+    }
     const char *indexStart = ptr;
     ptr = strchr(ptr, '\"');
     if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      fprintf(stderr, "Fout bij het lezen van item Index3\n");
       exit(EXIT_FAILURE);
     }
     const char *indexEnd = ptr;
@@ -51,13 +54,17 @@ struct Item *parseJSON(const char *jsonString, int *count) {
     // Kopieer de index naar de struct
     size_t indexLen = indexEnd - indexStart;
     items[i].index = malloc((indexLen + 1) * sizeof(char));
+    if (items[i].index == NULL) {
+      perror("Kan geheugen niet toewijzen voor index");
+      exit(EXIT_FAILURE);
+    }
     strncpy(items[i].index, indexStart, indexLen);
     items[i].index[indexLen] = '\0';
 
     // Zoek "name"
     ptr = strstr(ptr, "\"name\":");
     if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      fprintf(stderr, "Fout bij het lezen van item Name\n");
       exit(EXIT_FAILURE);
     }
     ptr += strlen("\"name\":");
@@ -65,7 +72,7 @@ struct Item *parseJSON(const char *jsonString, int *count) {
     const char *nameStart = ptr;
     ptr = strchr(ptr, '\"');
     if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      fprintf(stderr, "Fout bij het lezen van item Name\n");
       exit(EXIT_FAILURE);
     }
     const char *nameEnd = ptr;
@@ -80,7 +87,7 @@ struct Item *parseJSON(const char *jsonString, int *count) {
     // Zoek "url"
     ptr = strstr(ptr, "\"url\":");
     if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      fprintf(stderr, "Fout bij het lezen van item URL\n");
       exit(EXIT_FAILURE);
     }
     ptr += strlen("\"url\":");
@@ -88,7 +95,7 @@ struct Item *parseJSON(const char *jsonString, int *count) {
     const char *urlStart = ptr;
     ptr = strchr(ptr, '\"');
     if (ptr == NULL) {
-      fprintf(stderr, "Fout bij het lezen van item %d\n", i);
+      fprintf(stderr, "Fout bij het lezen van item URL\n");
       exit(EXIT_FAILURE);
     }
     const char *urlEnd = ptr;
@@ -108,7 +115,7 @@ struct Item *parseJSON(const char *jsonString, int *count) {
 char *readFile(const char *filename) {
   FILE *file = fopen(filename, "r");
   if (file == NULL) {
-    perror("Kan het bestand niet openen");
+    perror("Kan de file niet openen");
     exit(EXIT_FAILURE);
   }
 
@@ -132,7 +139,9 @@ char *readFile(const char *filename) {
 int main(int argc, char *argv[]) {
   // Controleren of er voldoende argumenten zijn
   if (argc < 2) {
-    printf("Usage: %s [equipment-files] [number-of-items] [-w max-weight] [-m money] [-c camp-file]\n", argv[0]);
+    printf("Usage: %s [equipment-files] [number-of-items] [-w max-weight] [-m "
+           "money] [-c camp-file]\n",
+           argv[0]);
     return 1;
   }
 
@@ -173,8 +182,8 @@ int main(int argc, char *argv[]) {
     int count;
     struct Item *items = parseJSON(fileContent, &count);
 
-    printf("Bestand: %s\n", filename);
-    printf("Aantal items: %d\n", count);
+    printf("File: %s\n", filename);
+    printf("Aantal items in deze file: %d\n", count);
 
     // Toon de eerste 'numberOfItems' items
     for (int j = 0; j < numberOfItems && j < count; j++) {
