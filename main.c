@@ -129,24 +129,82 @@ char *readFile(const char *filename) {
   return buffer;
 }
 
-int main() {
-  // Lees de inhoud van het bestand "tekst.JSON"
-  char *jsonString = readFile("tekst.JSON");
-
-  int count;
-  struct Item *items = parseJSON(jsonString, &count);
-
-  // Druk de geparste items af
-  printf("Aantal items: %d\n", count);
-  for (int i = 0; i < count; i++) {
-    printf("Index: %s, Name: %s, URL: %s\n", items[i].index, items[i].name,
-           items[i].url);
-    free(items[i].index);
-    free(items[i].name);
-    free(items[i].url);
+int main(int argc, char *argv[]) {
+  // Controleren of er voldoende argumenten zijn
+  if (argc < 2) {
+    printf("Usage: %s [equipment-files] [number-of-items] [-w max-weight] [-m money] [-c camp-file]\n", argv[0]);
+    return 1;
   }
-  free(items);
-  free(jsonString);
+
+  // Initialiseren van variabelen
+  char *equipmentFiles[argc];
+  int numberOfItems = 1;
+  char *maxWeightFlag = NULL;
+  char *maxWeight = NULL;
+  char *moneyFlag = NULL;
+  char *money = NULL;
+  char *campFileFlag = NULL;
+  char *campFile = NULL;
+
+  // Verwerken van de opgegeven opties
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-w") == 0) {
+      maxWeightFlag = argv[i];
+      maxWeight = argv[++i];
+    } else if (strcmp(argv[i], "-m") == 0) {
+      moneyFlag = argv[i];
+      money = argv[++i];
+    } else if (strcmp(argv[i], "-c") == 0) {
+      campFileFlag = argv[i];
+      campFile = argv[++i];
+    } else if (isdigit(argv[i][0])) {
+      numberOfItems = atoi(argv[i]);
+    } else {
+      equipmentFiles[i] = argv[i];
+    }
+  }
+
+  // Lees de inhoud van elk opgegeven bestand
+  for (int i = 1; i < argc; i++) {
+    char *filename = equipmentFiles[i];
+    char *fileContent = readFile(filename);
+
+    // Parse de JSON en verkrijg de items
+    int count;
+    struct Item *items = parseJSON(fileContent, &count);
+
+    printf("Bestand: %s\n", filename);
+    printf("Aantal items: %d\n", count);
+
+    // Toon de eerste 'numberOfItems' items
+    for (int j = 0; j < numberOfItems && j < count; j++) {
+      printf("Item %d:\n", j + 1);
+      printf("Index: %s\n", items[j].index);
+      printf("Naam: %s\n", items[j].name);
+      printf("URL: %s\n", items[j].url);
+      printf("\n");
+    }
+
+    // free het geheugen
+    for (int j = 0; j < count; j++) {
+      free(items[j].index);
+      free(items[j].name);
+      free(items[j].url);
+    }
+    free(items);
+    free(fileContent);
+  }
+
+  // Verwerken van andere opgegeven opties
+  if (maxWeightFlag != NULL) {
+    printf("Maximaal gewicht: %s\n", maxWeight);
+  }
+  if (moneyFlag != NULL) {
+    printf("Beschikbaar geld: %s\n", money);
+  }
+  if (campFileFlag != NULL) {
+    printf("Kampbestand: %s\n", campFile);
+  }
 
   return 0;
 }
